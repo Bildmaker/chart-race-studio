@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+*.pyo
+# generierte Medien
+*.mp4
+*.wav
+*.mov
+# render-/temp-ordner
+frames/
+frames3/
+build/
+dist/
+*.egg-info/
+# virtuelle Umgebungen
+.venv/
+venv/
+env/
+# OS
+.DS_Store
+Thumbs.db

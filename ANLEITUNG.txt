@@ -1,0 +1,90 @@
+============================================================
+  ChartRace Studio
+  Animierte Bar-Chart-Race-Videos (9:16) selbst rendern
+  fuer Instagram Reels, TikTok und YouTube Shorts
+============================================================
+
+WAS ES MACHT
+------------
+Du waehlst Assets (Gold, Bitcoin, Nvidia, Aktien, Krypto ...),
+einen Startzeitpunkt und einen Investbetrag. Das Programm rechnet
+aus, wie sich dein Geld entwickelt haette, und rendert daraus ein
+schickes, animiertes Balken-Rennen als fertiges MP4 - inkl. Musik,
+Endstand der 2 Sekunden stehen bleibt und blinkendem Sieger.
+
+
+EINMALIG: VORBEREITEN (ca. 5 Minuten)
+-------------------------------------
+1) Python installieren (falls noch nicht vorhanden)
+   - Auf  https://www.python.org/downloads/  die aktuelle Version laden
+   - WICHTIG beim Installieren: Haekchen bei
+     "Add python.exe to PATH"  setzen!
+
+2) Abhaengigkeiten installieren
+   - Doppelklick auf:  install.bat
+   - Es oeffnet sich ein schwarzes Fenster und laedt automatisch:
+     numpy, matplotlib, imageio-ffmpeg, yfinance
+   - Wenn am Ende "Fertig!" steht: schliessen.
+   (ffmpeg wird automatisch mitgeliefert - du musst nichts extra tun.)
+
+
+BENUTZEN
+--------
+1) Doppelklick auf:  start.bat   ->  das Fenster oeffnet sich.
+2) Assets ankreuzen (2 bis 6 Stueck). Eigene Boersenticker kannst
+   du zusaetzlich kommagetrennt eintragen, z. B.:  AMD, ^NDX, ETH-USD
+3) Investbetrag, Startjahr/-monat, Laenge, Endstand-Haltedauer waehlen.
+4) Look (Dark Neon oder Clean Light), Sieger-Blinken, Musik an/aus.
+5) Ausgabeordner waehlen.
+6) "Video rendern" klicken. Der Fortschritt laeuft unten mit.
+   Nach ~1-2 Minuten ist das MP4 fertig und du kannst den Ordner oeffnen.
+
+
+DATEN: LIVE ODER OFFLINE
+------------------------
+- "Live-Daten bevorzugen" (Standard an): laedt aktuelle Kurse aus dem
+  Internet (yfinance). So sind die Werte immer top-aktuell und du kannst
+  beliebige Ticker nutzen.
+- Ohne Internet (oder wenn ein Ticker nicht ladbar ist) greift das
+  Programm fuer GOLD, BITCOIN und NVIDIA automatisch auf fest
+  eingebaute Daten zurueck (Stand bis Juni 2026).
+- Eigene/zusaetzliche Ticker funktionieren nur mit Internet.
+
+  Ticker-Beispiele (Yahoo-Finance-Schreibweise):
+    Aktien:   AAPL, MSFT, TSLA, AMZN, NVDA, AMD, META, GOOGL
+    Indizes:  ^GSPC (S&P 500), ^NDX (Nasdaq 100), ^GDAXI (DAX)
+    Krypto:   BTC-USD, ETH-USD, SOL-USD
+    Rohstoff: GC=F (Gold), SI=F (Silber), CL=F (Oel)
+
+
+TIPPS
+-----
+- Format ist 1080x1920 (9:16) - passt direkt fuer Reels/TikTok/Shorts.
+- Musik ist selbst erzeugt und lizenzfrei. Du kannst sie auch ausschalten
+  und in der jeweiligen App einen Trending-Sound druberlegen.
+- Bei sehr unterschiedlich grossen Assets (z. B. Bitcoin vs. Gold) werden
+  die Balkenlaengen logarithmisch dargestellt, damit alle sichtbar bleiben
+  und sich ueberholen - die Eurobetraege zeigen trotzdem die echte Groesse.
+- Mehr Assets = kleinere Balken. 3-4 sehen am besten aus.
+
+
+HINWEISE / HAFTUNG
+------------------
+- Werte basieren auf Monats-/Jahres-Schlusskursen, nominal, USD-basiert
+  (keine Waehrungsumrechnung EUR/USD, keine Gebuehren/Steuern).
+- Nvidia ist split- und dividendenbereinigt.
+- Das ist eine Veranschaulichung, keine Anlageberatung.
+- Datenquellen Offline-Fallback: macrotrends.net, officialdata.org.
+
+
+DATEIEN
+-------
+  start.bat              -> Programm starten
+  install.bat            -> einmalig Abhaengigkeiten installieren
+  chartrace_studio.py    -> die Benutzeroberflaeche (GUI)
+  engine.py              -> Render-Engine (Daten, Frames, Video, Musik)
+  data.py                -> eingebaute Offline-Kursdaten
+  requirements.txt       -> Liste der Python-Pakete
+  ANLEITUNG.txt          -> diese Datei
+
+Viel Spass beim Rendern!
