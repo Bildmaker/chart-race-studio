@@ -7,10 +7,12 @@ import os, sys, math, shutil, tempfile, subprocess, datetime, wave
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as pe
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import matplotlib.image as mpimg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -181,9 +183,9 @@ _MEASURE={}
 def _text_w(text, fs, weight="bold"):
     key=(text,fs,weight)
     if key in _MEASURE: return _MEASURE[key]
-    fig=plt.figure(figsize=(2,1),dpi=DPI); r=fig.canvas.get_renderer()
+    fig=Figure(figsize=(2,1),dpi=DPI); FigureCanvasAgg(fig); r=fig.canvas.get_renderer()
     t=fig.text(0,0,text,fontsize=fs,fontweight=weight)
-    w=t.get_window_extent(renderer=r).width; plt.close(fig)
+    w=t.get_window_extent(renderer=r).width
     _MEASURE[key]=w; return w
 
 def _title(ax, y, invest, cur, th, alpha=1.0, effects=None):
@@ -214,7 +216,7 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
     X0=70; TW=W-2*X0; rad=min(46, barh*0.30)
     islight=th["islight"]
 
-    fig=plt.figure(figsize=(W/DPI,H/DPI),dpi=DPI)
+    fig=Figure(figsize=(W/DPI,H/DPI),dpi=DPI); FigureCanvasAgg(fig)
     ax=fig.add_axes([0,0,1,1]); ax.set_xlim(0,W); ax.set_ylim(0,H); ax.axis("off")
     use_bg = bgimg is not None
     if use_bg:
@@ -280,7 +282,7 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
     ax.text(W/2,82,f"seit {MONTHS_FULL[start_month-1]} {start_year}",ha="center",va="center",
             color=th["sub"],fontsize=30,fontweight="bold",alpha=txt_a,path_effects=txt_eff)
 
-    fig.savefig(path,facecolor=th["fig"]); plt.close(fig)
+    fig.savefig(path,facecolor=th["fig"])
 
 # ---------------------------------------------------------------- main
 def render_video(cfg, progress=None, log=print):
@@ -301,7 +303,7 @@ def render_video(cfg, progress=None, log=print):
         bg_path = os.path.join(HERE,"images","background.png")
     bgimg=None
     if bg_path and os.path.isfile(bg_path):
-        try: bgimg=plt.imread(bg_path)
+        try: bgimg=mpimg.imread(bg_path)
         except Exception as e: log("Hintergrundbild konnte nicht geladen werden: %r"%e)
     today=datetime.date.today()
     start_mi=midx(sy,sm); end_mi=midx(today.year,today.month)
