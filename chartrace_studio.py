@@ -109,6 +109,16 @@ class App(tk.Tk):
         tk.Button(of2,text="Durchsuchen",command=self._browse,bg=CARD,fg=FG,relief="flat",
                   activebackground="#26263a",activeforeground=FG).pack(side="left",padx=(8,0))
 
+        cbg=tk.Frame(body,bg=BG); cbg.pack(fill="x",pady=6)
+        self._lbl(cbg,"Hintergrundbild (leer = keins):").pack(anchor="w")
+        ofb=tk.Frame(cbg,bg=BG); ofb.pack(fill="x")
+        self.bg=tk.StringVar(value=os.path.join(HERE,"images","background.png"))
+        tk.Entry(ofb,textvariable=self.bg,bg="#101020",fg=FG,insertbackground=FG,relief="flat").pack(side="left",fill="x",expand=True,ipady=4)
+        tk.Button(ofb,text="Durchsuchen",command=self._browse_bg,bg=CARD,fg=FG,relief="flat",
+                  activebackground="#26263a",activeforeground=FG).pack(side="left",padx=(8,0))
+        tk.Button(ofb,text="Kein Bild",command=lambda:self.bg.set(""),bg=CARD,fg=FG,relief="flat",
+                  activebackground="#26263a",activeforeground=FG).pack(side="left",padx=(6,0))
+
         # --- action ---
         self.btn=tk.Button(body,text="▶  Video rendern",command=self._start,bg=ACCENT,fg="#0b0b16",
             relief="flat",font=("Segoe UI Semibold",13),activebackground="#9a9aff",cursor="hand2")
@@ -120,6 +130,12 @@ class App(tk.Tk):
     def _browse(self):
         d=filedialog.askdirectory(initialdir=self.outdir.get() or HERE)
         if d: self.outdir.set(d)
+
+    def _browse_bg(self):
+        init=os.path.dirname(self.bg.get()) if self.bg.get() else os.path.join(HERE,"images")
+        p=filedialog.askopenfilename(initialdir=init or HERE,
+            filetypes=[("Bilder","*.png *.jpg *.jpeg *.bmp *.webp"),("Alle Dateien","*.*")])
+        if p: self.bg.set(p)
 
     def _collect_assets(self):
         a=[n for n,v in self.asset_vars.items() if v.get()]
@@ -147,7 +163,7 @@ class App(tk.Tk):
         cfg=dict(assets=assets,invest=invest,start_year=self.syear.get(),
                  start_month=self.smonth.get(),duration=dur,hold=hold,
                  blink=self.blink.get(),look=self.look.get(),music=self.music.get(),
-                 out_path=out,currency="€",prefer_live=self.live.get(),sort=self.sort.get(),start_max=startmax)
+                 out_path=out,currency="€",prefer_live=self.live.get(),sort=self.sort.get(),start_max=startmax,background=self.bg.get())
         self.btn.config(state="disabled",text="Rendere …")
         self.pb["value"]=0
         threading.Thread(target=self._worker,args=(cfg,),daemon=True).start()

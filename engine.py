@@ -186,14 +186,14 @@ def _text_w(text, fs, weight="bold"):
     w=t.get_window_extent(renderer=r).width; plt.close(fig)
     _MEASURE[key]=w; return w
 
-def _title(ax, y, invest, cur, th):
+def _title(ax, y, invest, cur, th, alpha=1.0, effects=None):
     amt=f"{int(round(invest)):,}".replace(",",".")+cur
     parts=[("AUS ", th["text"]),(amt, ACCENT),(" WERDEN", th["text"])]
     fs=46
     widths=[_text_w(t,fs) for t,_ in parts]
     x=W/2-sum(widths)/2
     for (t,c),w in zip(parts,widths):
-        ax.text(x,y,t,ha="left",va="center",color=c,fontsize=fs,fontweight="bold")
+        ax.text(x,y,t,ha="left",va="center",color=c,fontsize=fs,fontweight="bold",alpha=alpha,path_effects=effects)
         x+=w
 
 def _bar_fraction(v, scale_max):
@@ -209,20 +209,29 @@ def _layout(n):
 
 # ---------------------------------------------------------------- frame
 def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_month,
-           scale_max, winner=None, blink=None):
+           scale_max, winner=None, blink=None, bgimg=None):
     n=len(assets); barh,_=_layout(n)
     X0=70; TW=W-2*X0; rad=min(46, barh*0.30)
     islight=th["islight"]
 
     fig=plt.figure(figsize=(W/DPI,H/DPI),dpi=DPI)
-    ax=fig.add_axes([0,0,1,1]); ax.set_xlim(0,W); ax.set_ylim(0,H); ax.axis("off"); _bg(ax,th)
+    ax=fig.add_axes([0,0,1,1]); ax.set_xlim(0,W); ax.set_ylim(0,H); ax.axis("off")
+    use_bg = bgimg is not None
+    if use_bg:
+        ax.imshow(bgimg, extent=[0,W,0,H], aspect="auto", zorder=0)
+    else:
+        _bg(ax,th)
+    bar_a  = 0.80 if use_bg else 1.0
+    lane_a = 0.42 if use_bg else 1.0
+    txt_a  = 0.90 if use_bg else 1.0
+    txt_eff=[pe.withStroke(linewidth=3,foreground=("#ffffff" if islight else "#000000"),alpha=0.45)] if use_bg else None
 
     # ---- title + date (top) ----
-    _title(ax, H-110, invest, cur, th)
+    _title(ax, H-110, invest, cur, th, txt_a, txt_eff)
     yr,mo=ymd(t)
     ax.text(W/2,H-250,MONTHS_FULL[mo].upper(),ha="center",va="center",
-            color=th["text"],fontsize=46,fontweight="bold")
-    ax.text(W/2,H-385,f"{yr}",ha="center",va="center",color=th["text"],fontsize=150,fontweight="bold")
+            color=th["text"],fontsize=46,fontweight="bold",alpha=txt_a,path_effects=txt_eff)
+    ax.text(W/2,H-385,f"{yr}",ha="center",va="center",color=th["text"],fontsize=150,fontweight="bold",alpha=txt_a,path_effects=txt_eff)
 
     # ---- bars ----
     regionTop=H-575; regionBottom=210; pitch=(regionTop-regionBottom)/n
@@ -234,7 +243,7 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
         gp=(blink if is_win else 0.0)
         # graue Lane (volle Breite)
         ax.add_patch(FancyBboxPatch((X0,y),TW,barh,boxstyle=f"round,pad=0,rounding_size={rad}",
-            lw=0,facecolor=th["track"],zorder=1))
+            lw=0,facecolor=th["track"],alpha=lane_a,zorder=1))
         # Glow
         for dx,al in [(22,0.05),(13,0.08),(6,0.12)]:
             ax.add_patch(FancyBboxPatch((X0-dx,y-dx),bw+2*dx,barh+2*dx,
@@ -246,7 +255,7 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
         grad=np.linspace(0,1,256).reshape(1,-1)
         im=ax.imshow(grad,extent=[X0,X0+bw,y,y+barh],aspect="auto",origin="lower",zorder=3,
             cmap=LinearSegmentedColormap.from_list("b",[_mix(c,'#ffffff',0.45),c]))
-        im.set_clip_path(clip)
+        im.set_clip_path(clip); im.set_alpha(bar_a)
         sh=FancyBboxPatch((X0,y+barh*0.52),bw,barh*0.48,boxstyle=f"round,pad=0,rounding_size={rb}",
             lw=0,facecolor='#ffffff',alpha=0.12,zorder=4); ax.add_patch(sh); sh.set_clip_path(clip)
         if is_win:
@@ -255,7 +264,7 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
         # Name ueber dem Balken
         fs_name=40 if n<=3 else (32 if n<=4 else 26)
         ax.text(X0+8,y+barh+34,nm,ha="left",va="center",color=th["text"],
-                fontsize=fs_name,fontweight="bold",zorder=7)
+                fontsize=fs_name,fontweight="bold",zorder=7,alpha=txt_a,path_effects=txt_eff)
         # Wert + Vielfaches (rechts in der Lane)
         fs_v=58 if n<=3 else (46 if n<=4 else 38)
         vtxt=fmt_eur(v,cur); mtxt=fmt_mult(v/invest); vx=X0+TW-34
@@ -263,13 +272,13 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
         vstroke = "#ffffff" if islight else "#0a0a16"
         veff=[pe.withStroke(linewidth=4,foreground=vstroke,alpha=0.6)]
         ax.text(vx,cy+barh*0.13,vtxt,ha="right",va="center",color=vcol,fontsize=fs_v,
-                fontweight="bold",zorder=7,path_effects=veff)
+                fontweight="bold",zorder=7,alpha=txt_a,path_effects=veff)
         ax.text(vx,cy-barh*0.26,mtxt,ha="right",va="center",color=MULT,fontsize=fs_v*0.52,
-                fontweight="bold",zorder=7,path_effects=veff)
+                fontweight="bold",zorder=7,alpha=txt_a,path_effects=veff)
 
     # ---- footer ----
     ax.text(W/2,82,f"seit {MONTHS_FULL[start_month-1]} {start_year}",ha="center",va="center",
-            color=th["sub"],fontsize=30,fontweight="bold")
+            color=th["sub"],fontsize=30,fontweight="bold",alpha=txt_a,path_effects=txt_eff)
 
     fig.savefig(path,facecolor=th["fig"]); plt.close(fig)
 
@@ -285,6 +294,15 @@ def render_video(cfg, progress=None, log=print):
     music=bool(cfg.get("music",True)); cur=cfg.get("currency","€")
     prefer_live=bool(cfg.get("prefer_live",True)); sort_v=bool(cfg.get("sort",True))
     th=THEMES.get(look,THEMES["dark"])
+    # Hintergrundbild (Default: images/background.png; leerer Pfad = keins)
+    if "background" in cfg:
+        bg_path = cfg["background"] or None
+    else:
+        bg_path = os.path.join(HERE,"images","background.png")
+    bgimg=None
+    if bg_path and os.path.isfile(bg_path):
+        try: bgimg=plt.imread(bg_path)
+        except Exception as e: log("Hintergrundbild konnte nicht geladen werden: %r"%e)
     today=datetime.date.today()
     start_mi=midx(sy,sm); end_mi=midx(today.year,today.month)
     if end_mi<=start_mi: end_mi=start_mi+12
@@ -330,7 +348,7 @@ def render_video(cfg, progress=None, log=print):
             vals=step(t)
             smax=max(start_max, max(vals.values()))
             _frame(os.path.join(tmp,f"f{i:05d}.png"),assets,vals,yd,t,th,invest,cur,
-                   sy,sm,smax,winner=winner,blink=(bl if blink else None))
+                   sy,sm,smax,winner=winner,blink=(bl if blink else None),bgimg=bgimg)
             if i%10==0: report(10+int(78*i/total),f"Rendere Frame {i+1}/{total} …")
         audio=None
         if music:
