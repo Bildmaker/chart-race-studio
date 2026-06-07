@@ -24,8 +24,8 @@ class App(tk.Tk):
         super().__init__()
         self.title("ChartRace Studio")
         self.configure(bg=BG)
-        self.geometry("640x860")
-        self.minsize(600,820)
+        self.geometry("660x980")
+        self.minsize(600,900)
         self.q=queue.Queue()
         self._build()
         self.after(120,self._poll)
@@ -120,9 +120,19 @@ class App(tk.Tk):
                   activebackground="#26263a",activeforeground=FG).pack(side="left",padx=(6,0))
 
         # --- action ---
+        # ---- Log-Fenster (Prozess live beobachten) ----
+        clog=tk.Frame(body,bg=BG); clog.pack(fill="both",expand=True,pady=(8,2))
+        self._lbl(clog,"Render-Log:").pack(anchor="w")
+        lwrap=tk.Frame(clog,bg=BG); lwrap.pack(fill="both",expand=True)
+        sb=tk.Scrollbar(lwrap); sb.pack(side="right",fill="y")
+        self.logbox=tk.Text(lwrap,height=9,bg="#0c0c16",fg="#cfd2e6",insertbackground=FG,
+            relief="flat",font=("Consolas",9),yscrollcommand=sb.set,wrap="word")
+        self.logbox.pack(side="left",fill="both",expand=True)
+        sb.config(command=self.logbox.yview)
+
         self.btn=tk.Button(body,text="▶  Video rendern",command=self._start,bg=ACCENT,fg="#0b0b16",
             relief="flat",font=("Segoe UI Semibold",13),activebackground="#9a9aff",cursor="hand2")
-        self.btn.pack(fill="x",pady=(12,6),ipady=10)
+        self.btn.pack(fill="x",pady=(10,6),ipady=10)
         self.pb=ttk.Progressbar(body,maximum=100); self.pb.pack(fill="x",pady=(2,2))
         self.status=tk.Label(body,text="Bereit.",bg=BG,fg=SUB,font=("Segoe UI",9),anchor="w")
         self.status.pack(fill="x")
@@ -164,23 +174,43 @@ class App(tk.Tk):
                  start_month=self.smonth.get(),duration=dur,hold=hold,
                  blink=self.blink.get(),look=self.look.get(),music=self.music.get(),
                  out_path=out,currency="€",prefer_live=self.live.get(),sort=self.sort.get(),start_max=startmax,background=self.bg.get())
+        self.logbox.delete("1.0","end")
+        logpath=os.path.join(self.outdir.get(),"render_log.txt")
+        self._log("Starte Render: "+", ".join(assets))
+        self._log("Ausgabe: "+out)
+        self._log("Log-Datei: "+logpath)
         self.btn.config(state="disabled",text="Rendere …")
         self.pb["value"]=0
-        threading.Thread(target=self._worker,args=(cfg,),daemon=True).start()
+        threading.Thread(target=self._worker,args=(cfg,logpath),daemon=True).start()
 
-    def _worker(self,cfg):
+    def _worker(self,cfg,logpath):
+        lf=None
+        try: lf=open(logpath,"w",encoding="utf-8")
+        except Exception: lf=None
+        def log(m):
+            line=str(m); self.q.put(("log",line))
+            if lf:
+                try: lf.write(line+"\n"); lf.flush()
+                except Exception: pass
+        def prog(p,m): self.q.put(("prog",p,m))
         try:
-            def prog(p,m): self.q.put(("prog",p,m))
-            out=E.render_video(cfg,progress=prog,log=lambda m:None)
+            out=E.render_video(cfg,progress=prog,log=log)
             self.q.put(("done",out))
         except Exception as e:
-            self.q.put(("err","%s\n\n%s"%(e,traceback.format_exc())))
+            log("FEHLER:\n"+traceback.format_exc())
+            self.q.put(("err",str(e)))
+        finally:
+            if lf:
+                try: lf.close()
+                except Exception: pass
 
     def _poll(self):
         try:
             while True:
                 item=self.q.get_nowait()
-                if item[0]=="prog":
+                if item[0]=="log":
+                    self._log(item[1])
+                elif item[0]=="prog":
                     self.pb["value"]=item[1]; self.status.config(text=item[2])
                 elif item[0]=="done":
                     self.pb["value"]=100; self.status.config(text="Fertig: "+item[1])
@@ -194,6 +224,11 @@ class App(tk.Tk):
         except queue.Empty:
             pass
         self.after(120,self._poll)
+
+    def _log(self,msg):
+        try:
+            self.logbox.insert("end",str(msg)+"\n"); self.logbox.see("end")
+        except Exception: pass
 
     def _open(self,path):
         try:
