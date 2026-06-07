@@ -44,22 +44,31 @@ def _mix(h1,h2,t):
     f=lambda i:max(0,min(255,round(g(a,i)+(g(b,i)-g(a,i))*t)))
     return "#%02X%02X%02X"%(f(0),f(2),f(4))
 
-MONTHS_FULL=["Januar","Februar","März","April","Mai","Juni","Juli","August",
-             "September","Oktober","November","Dezember"]
+MONTHS={
+ "de":["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"],
+ "en":["January","February","March","April","May","June","July","August","September","October","November","December"],
+}
 W,H,DPI,FPS = 1080,1920,100,30
 
 def midx(year, month): return (year-2012)*12 + (month-1)
-def ymd(t): t=max(0,t); return (2012+int(t)//12, int(t)%12)
+def ymd(t):
+    ti=int(math.floor(t)); return (2012 + ti//12, ti%12)
 
-def fmt_eur(v, cur="€"):
+def fmt_eur(v, cur="€", lang="de"):
+    if lang=="en":
+        if v < 1e6: return f"{v:,.0f} {cur}"
+        if v < 1e9: return f"{v/1e6:,.1f}M {cur}"
+        return f"{v/1e9:,.2f}B {cur}"
     if v < 1000:   return f"{v:,.0f} {cur}".replace(",",".")
     if v < 1e6:    return f"{v:,.0f} {cur}".replace(",","X").replace(".",",").replace("X",".")
     if v < 1e9:    return f"{v/1e6:,.1f} Mio {cur}".replace(".",",")
     return f"{v/1e9:,.2f} Mrd {cur}".replace(".",",")
 
-def fmt_mult(m):
-    if m < 100: return f"{m:.1f}".replace(".",",")+" ×"
-    return f"{m:,.0f}".replace(",",".")+" ×"
+def fmt_mult(m, lang="de"):
+    if lang=="en":
+        return (f"{m:.1f}" if m<100 else f"{m:,.0f}")+" ×"
+    s=(f"{m:.1f}".replace(".",",")) if m<100 else (f"{m:,.0f}".replace(",","."))
+    return s+" ×"
 
 # ---------------------------------------------------------------- data
 def _offline_series(key):
@@ -189,9 +198,13 @@ def _text_w(text, fs, weight="bold"):
     w=t.get_window_extent(renderer=r).width
     _MEASURE[key]=w; return w
 
-def _title(ax, y, invest, cur, th, alpha=1.0, effects=None):
-    amt=f"{int(round(invest)):,}".replace(",",".")+cur
-    parts=[("AUS ", th["text"]),(amt, ACCENT),(" WERDEN", th["text"])]
+def _title(ax, y, invest, cur, th, lang="de", alpha=1.0, effects=None):
+    if lang=="en":
+        amt=f"{int(round(invest)):,}"+cur
+        parts=[("TURN ", th["text"]),(amt, ACCENT),(" INTO", th["text"])]
+    else:
+        amt=f"{int(round(invest)):,}".replace(",",".")+cur
+        parts=[("AUS ", th["text"]),(amt, ACCENT),(" WERDEN", th["text"])]
     fs=46
     widths=[_text_w(t,fs) for t,_ in parts]
     x=W/2-sum(widths)/2
@@ -212,7 +225,7 @@ def _layout(n):
 
 # ---------------------------------------------------------------- frame
 def _paint(ax, assets, vals, ydisp, t, th, invest, cur, start_year, start_month,
-           scale_max, use_bg, winner=None, blink=None):
+           scale_max, use_bg, lang="de", winner=None, blink=None):
     n=len(assets); barh,_=_layout(n)
     X0=70; TW=W-2*X0; rad=min(46, barh*0.30)
     islight=th["islight"]
@@ -221,9 +234,9 @@ def _paint(ax, assets, vals, ydisp, t, th, invest, cur, start_year, start_month,
     txt_a  = 0.90 if use_bg else 1.0
     txt_eff=[pe.withStroke(linewidth=3,foreground=("#ffffff" if islight else "#000000"),alpha=0.45)] if use_bg else None
 
-    _title(ax, H-110, invest, cur, th, txt_a, txt_eff)
+    _title(ax, H-110, invest, cur, th, lang, txt_a, txt_eff)
     yr,mo=ymd(t)
-    ax.text(W/2,H-250,MONTHS_FULL[mo].upper(),ha="center",va="center",
+    ax.text(W/2,H-250,MONTHS[lang][mo].upper(),ha="center",va="center",
             color=th["text"],fontsize=46,fontweight="bold",alpha=txt_a,path_effects=txt_eff)
     ax.text(W/2,H-385,f"{yr}",ha="center",va="center",color=th["text"],fontsize=150,
             fontweight="bold",alpha=txt_a,path_effects=txt_eff)
@@ -256,7 +269,7 @@ def _paint(ax, assets, vals, ydisp, t, th, invest, cur, start_year, start_month,
         ax.text(X0+8,y+barh+34,nm,ha="left",va="center",color=th["text"],
                 fontsize=fs_name,fontweight="bold",zorder=7,alpha=txt_a,path_effects=txt_eff)
         fs_v=58 if n<=3 else (46 if n<=4 else 38)
-        vtxt=fmt_eur(v,cur); mtxt=fmt_mult(v/invest); vx=X0+TW-34
+        vtxt=fmt_eur(v,cur,lang); mtxt=fmt_mult(v/invest,lang); vx=X0+TW-34
         vcol = "#111118" if islight else "#ffffff"
         vstroke = "#ffffff" if islight else "#0a0a16"
         veff=[pe.withStroke(linewidth=4,foreground=vstroke,alpha=0.6)]
@@ -265,7 +278,8 @@ def _paint(ax, assets, vals, ydisp, t, th, invest, cur, start_year, start_month,
         ax.text(vx,cy-barh*0.26,mtxt,ha="right",va="center",color=MULT,fontsize=fs_v*0.52,
                 fontweight="bold",zorder=7,alpha=txt_a,path_effects=veff)
 
-    ax.text(W/2,82,f"seit {MONTHS_FULL[start_month-1]} {start_year}",ha="center",va="center",
+    _since = "since" if lang=="en" else "seit"
+    ax.text(W/2,82,f"{_since} {MONTHS[lang][start_month-1]} {start_year}",ha="center",va="center",
             color=th["sub"],fontsize=30,fontweight="bold",alpha=txt_a,path_effects=txt_eff)
 
 def _new_ax(transparent):
@@ -293,14 +307,14 @@ def _zoom_array(img, z):
     return np.asarray(Image.fromarray(crop).resize((w,h), Image.BILINEAR))
 
 def _frame_rgba(assets, vals, ydisp, t, th, invest, cur, sy, sm, scale_max, use_bg,
-                winner=None, blink=None):
+                lang="de", winner=None, blink=None):
     fig,ax=_new_ax(True)
-    _paint(ax,assets,vals,ydisp,t,th,invest,cur,sy,sm,scale_max,use_bg,winner,blink)
+    _paint(ax,assets,vals,ydisp,t,th,invest,cur,sy,sm,scale_max,use_bg,lang,winner,blink)
     fig.canvas.draw()
     return np.asarray(fig.canvas.buffer_rgba())
 
 def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_month,
-           scale_max, winner=None, blink=None, bgimg=None):
+           scale_max, winner=None, blink=None, bgimg=None, lang="de"):
     """Einzelbild als PNG (fuer Standbilder/Tests)."""
     use_bg = bgimg is not None
     fig,ax=_new_ax(False)
@@ -308,7 +322,7 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
         ax.imshow(bgimg, extent=[0,W,0,H], aspect="auto", zorder=0)
     else:
         _bg(ax,th)
-    _paint(ax,assets,vals,ydisp,t,th,invest,cur,start_year,start_month,scale_max,use_bg,winner,blink)
+    _paint(ax,assets,vals,ydisp,t,th,invest,cur,start_year,start_month,scale_max,use_bg,lang,winner,blink)
     fig.savefig(path,facecolor=th["fig"])
 
 def _ffmpeg_exe():
@@ -329,6 +343,7 @@ def render_video(cfg, progress=None, log=print):
     blink=bool(cfg.get("blink",True)); look=cfg.get("look","dark")
     music=bool(cfg.get("music",True)); cur=cfg.get("currency","€")
     prefer_live=bool(cfg.get("prefer_live",True)); sort_v=bool(cfg.get("sort",True))
+    lang=cfg.get("lang","de")
     th=THEMES.get(look,THEMES["dark"])
     if "background" in cfg:
         bg_path = cfg["background"] or None
@@ -357,7 +372,7 @@ def render_video(cfg, progress=None, log=print):
 
     endvals=values_at(end_mi); winner=max(endvals,key=lambda k:endvals[k])
     start_max=float(cfg.get("start_max",50000))
-    report(8,f"Sieger: {winner} ({fmt_eur(endvals[winner],cur)}) · StartMax: {fmt_eur(start_max,cur)}")
+    report(8,f"[{lang}] Sieger: {winner} ({fmt_eur(endvals[winner],cur,lang)}) · StartMax: {fmt_eur(start_max,cur,lang)}")
 
     total=int(round(dur*FPS)); holdf=int(round(hold*FPS)); racef=max(2,total-holdf)
     NAMES=[a["name"] for a in assets]; yd={}
@@ -402,7 +417,7 @@ def render_video(cfg, progress=None, log=print):
             else:
                 t=end_mi; bl=0.5+0.5*math.sin(((i-racef)/FPS)*2*math.pi*2.5)
             vals=step(t); smax=max(start_max, max(vals.values()))
-            fg=_frame_rgba(assets,vals,yd,t,th,invest,cur,sy,sm,smax,use_bg,
+            fg=_frame_rgba(assets,vals,yd,t,th,invest,cur,sy,sm,smax,use_bg,lang,
                            winner=winner,blink=(bl if blink else None)).astype(np.float32)
             if zoom_on:
                 z=1.0+(zoom_end-1.0)*(i/max(1,total-1))

@@ -24,8 +24,8 @@ class App(tk.Tk):
         super().__init__()
         self.title("ChartRace Studio")
         self.configure(bg=BG)
-        self.geometry("660x980")
-        self.minsize(600,900)
+        self.geometry("660x940")
+        self.minsize(560,600)
         self.q=queue.Queue()
         self._build()
         self.after(120,self._poll)
@@ -79,7 +79,7 @@ class App(tk.Tk):
         self.zoom=tk.StringVar(value="105")
         row(0,"Investbetrag (€)",tk.Entry(g,textvariable=self.invest,bg="#101020",fg=FG,insertbackground=FG,relief="flat"))
         row(1,"StartMax / graue Lane (€)",tk.Entry(g,textvariable=self.startmax,bg="#101020",fg=FG,insertbackground=FG,relief="flat"))
-        row(2,"Startjahr",tk.Spinbox(g,from_=2012,to=thisyear,textvariable=self.syear,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
+        row(2,"Startjahr",tk.Spinbox(g,from_=2000,to=thisyear,textvariable=self.syear,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
         row(3,"Startmonat",tk.Spinbox(g,from_=1,to=12,textvariable=self.smonth,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
         row(4,"Länge (Sek.)",tk.Spinbox(g,from_=5,to=60,textvariable=self.dur,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
         row(5,"Endstand stehen lassen (Sek.)",tk.Spinbox(g,from_=0,to=6,textvariable=self.hold,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
@@ -101,6 +101,12 @@ class App(tk.Tk):
         for txt,var in [("Sieger blinken",self.blink),("Musik",self.music),("Live-Daten",self.live),("Nach Wert sortieren",self.sort)]:
             tk.Checkbutton(of,text=txt,variable=var,bg=BG,fg=FG,selectcolor="#26263a",
                 activebackground=BG,activeforeground=FG,font=("Segoe UI",10)).pack(side="left",padx=(0,14))
+        lf2=tk.Frame(co,bg=BG); lf2.pack(fill="x",pady=(4,0))
+        self._lbl(lf2,"Sprache:").pack(side="left")
+        self.lang_de=tk.BooleanVar(value=True); self.lang_en=tk.BooleanVar(value=False)
+        for txt,var in [("Deutsch",self.lang_de),("Englisch",self.lang_en)]:
+            tk.Checkbutton(lf2,text=txt,variable=var,bg=BG,fg=FG,selectcolor="#26263a",
+                activebackground=BG,activeforeground=FG,font=("Segoe UI",10)).pack(side="left",padx=(8,6))
 
         # --- output ---
         co2=tk.Frame(body,bg=BG); co2.pack(fill="x",pady=6)
@@ -122,22 +128,24 @@ class App(tk.Tk):
                   activebackground="#26263a",activeforeground=FG).pack(side="left",padx=(6,0))
 
         # --- action ---
-        # ---- Log-Fenster (Prozess live beobachten) ----
-        clog=tk.Frame(body,bg=BG); clog.pack(fill="both",expand=True,pady=(8,2))
+        # ---- Aktionsleiste (fest am unteren Rand, immer sichtbar) ----
+        self.status=tk.Label(body,text="Bereit.",bg=BG,fg=SUB,font=("Segoe UI",9),anchor="w")
+        self.status.pack(side="bottom",fill="x")
+        self.pb=ttk.Progressbar(body,maximum=100)
+        self.pb.pack(side="bottom",fill="x",pady=(2,2))
+        self.btn=tk.Button(body,text="▶  Video rendern",command=self._start,bg=ACCENT,fg="#0b0b16",
+            relief="flat",font=("Segoe UI Semibold",13),activebackground="#9a9aff",cursor="hand2")
+        self.btn.pack(side="bottom",fill="x",pady=(10,4),ipady=10)
+
+        # ---- Log-Fenster (fuellt den Platz oberhalb des Buttons) ----
+        clog=tk.Frame(body,bg=BG); clog.pack(side="top",fill="both",expand=True,pady=(8,2))
         self._lbl(clog,"Render-Log:").pack(anchor="w")
         lwrap=tk.Frame(clog,bg=BG); lwrap.pack(fill="both",expand=True)
         sb=tk.Scrollbar(lwrap); sb.pack(side="right",fill="y")
-        self.logbox=tk.Text(lwrap,height=9,bg="#0c0c16",fg="#cfd2e6",insertbackground=FG,
+        self.logbox=tk.Text(lwrap,height=6,bg="#0c0c16",fg="#cfd2e6",insertbackground=FG,
             relief="flat",font=("Consolas",9),yscrollcommand=sb.set,wrap="word")
         self.logbox.pack(side="left",fill="both",expand=True)
         sb.config(command=self.logbox.yview)
-
-        self.btn=tk.Button(body,text="▶  Video rendern",command=self._start,bg=ACCENT,fg="#0b0b16",
-            relief="flat",font=("Segoe UI Semibold",13),activebackground="#9a9aff",cursor="hand2")
-        self.btn.pack(fill="x",pady=(10,6),ipady=10)
-        self.pb=ttk.Progressbar(body,maximum=100); self.pb.pack(fill="x",pady=(2,2))
-        self.status=tk.Label(body,text="Bereit.",bg=BG,fg=SUB,font=("Segoe UI",9),anchor="w")
-        self.status.pack(fill="x")
 
     def _browse(self):
         d=filedialog.askdirectory(initialdir=self.outdir.get() or HERE)
@@ -169,24 +177,30 @@ class App(tk.Tk):
             zoom=max(1.0,float(self.zoom.get().replace(",","."))/100.0)
         except ValueError:
             messagebox.showerror("Fehler","Bitte gültige Zahlen eingeben."); return
+        langs=[c for c,v in (("de",self.lang_de),("en",self.lang_en)) if v.get()]
+        if not langs:
+            messagebox.showwarning("Hinweis","Bitte mindestens eine Sprache wählen (Deutsch/Englisch)."); return
         os.makedirs(self.outdir.get(),exist_ok=True)
         stamp=datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         tag="_".join(a.replace(" ","").replace("^","")[:6] for a in assets[:3])
-        out=os.path.join(self.outdir.get(),f"chartrace_{tag}_{self.syear.get()}_{stamp}.mp4")
-        cfg=dict(assets=assets,invest=invest,start_year=self.syear.get(),
+        base=dict(assets=assets,invest=invest,start_year=self.syear.get(),
                  start_month=self.smonth.get(),duration=dur,hold=hold,
                  blink=self.blink.get(),look=self.look.get(),music=self.music.get(),
-                 out_path=out,currency="€",prefer_live=self.live.get(),sort=self.sort.get(),start_max=startmax,background=self.bg.get(),zoom=zoom)
+                 currency="€",prefer_live=self.live.get(),sort=self.sort.get(),
+                 start_max=startmax,background=self.bg.get(),zoom=zoom)
+        cfgs=[]
+        for lang in langs:
+            o=os.path.join(self.outdir.get(),f"chartrace_{tag}_{self.syear.get()}_{lang}_{stamp}.mp4")
+            c=dict(base); c["lang"]=lang; c["out_path"]=o; cfgs.append(c)
         self.logbox.delete("1.0","end")
         logpath=os.path.join(self.outdir.get(),"render_log.txt")
-        self._log("Starte Render: "+", ".join(assets))
-        self._log("Ausgabe: "+out)
-        self._log("Log-Datei: "+logpath)
+        self._log("Starte Render (%d Sprache(n)): %s"%(len(langs),", ".join(assets)))
+        for c in cfgs: self._log("Ausgabe: "+c["out_path"])
         self.btn.config(state="disabled",text="Rendere …")
         self.pb["value"]=0
-        threading.Thread(target=self._worker,args=(cfg,logpath),daemon=True).start()
+        threading.Thread(target=self._worker,args=(cfgs,logpath),daemon=True).start()
 
-    def _worker(self,cfg,logpath):
+    def _worker(self,cfgs,logpath):
         lf=None
         try: lf=open(logpath,"w",encoding="utf-8")
         except Exception: lf=None
@@ -195,13 +209,15 @@ class App(tk.Tk):
             if lf:
                 try: lf.write(line+"\n"); lf.flush()
                 except Exception: pass
-        def prog(p,m): self.q.put(("prog",p,m))
+        outs=[]; total=len(cfgs)
         try:
-            out=E.render_video(cfg,progress=prog,log=log)
-            self.q.put(("done",out))
+            for idx,cfg in enumerate(cfgs):
+                def prog(p,m,idx=idx): self.q.put(("prog",int((idx*100+p)/total),m))
+                log("=== Sprache %s -> %s ==="%(cfg["lang"],os.path.basename(cfg["out_path"])))
+                outs.append(E.render_video(cfg,progress=prog,log=log))
+            self.q.put(("done",outs))
         except Exception as e:
-            log("FEHLER:\n"+traceback.format_exc())
-            self.q.put(("err",str(e)))
+            log("FEHLER:\n"+traceback.format_exc()); self.q.put(("err",str(e)))
         finally:
             if lf:
                 try: lf.close()
@@ -216,10 +232,12 @@ class App(tk.Tk):
                 elif item[0]=="prog":
                     self.pb["value"]=item[1]; self.status.config(text=item[2])
                 elif item[0]=="done":
-                    self.pb["value"]=100; self.status.config(text="Fertig: "+item[1])
+                    outs=item[1] if isinstance(item[1],list) else [item[1]]
+                    self.pb["value"]=100; self.status.config(text="Fertig: %d Video(s)"%len(outs))
+                    self._log("FERTIG: "+", ".join(outs))
                     self.btn.config(state="normal",text="▶  Video rendern")
-                    if messagebox.askyesno("Fertig","Video erstellt:\n%s\n\nOrdner öffnen?"%item[1]):
-                        self._open(os.path.dirname(item[1]))
+                    if messagebox.askyesno("Fertig","%d Video(s) erstellt:\n%s\n\nOrdner öffnen?"%(len(outs),chr(10).join(outs))):
+                        self._open(os.path.dirname(outs[0]))
                 elif item[0]=="err":
                     self.btn.config(state="normal",text="▶  Video rendern")
                     self.status.config(text="Fehler.")
