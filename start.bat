@@ -1,12 +1,16 @@
 @echo off
 chcp 65001 >nul
 title ChartRace Studio
-where py >nul 2>nul
-if %errorlevel%==0 (set PY=py) else (set PY=python)
 cd /d "%~dp0"
+where py >nul 2>nul && (set PY=py) || (set PY=python)
+%PY% -c "import yfinance, matplotlib, numpy, imageio_ffmpeg" 1>nul 2>nul
+if errorlevel 1 (
+  echo Installiere fehlende Pakete in dieses Python ... (einmalig)
+  %PY% -m pip install -r requirements.txt
+)
 %PY% chartrace_studio.py
-if %errorlevel% neq 0 (
+if errorlevel 1 (
   echo.
-  echo Es ist ein Fehler aufgetreten. Hast du install.bat ausgefuehrt?
+  echo Es ist ein Fehler aufgetreten. Bitte Meldung oben pruefen.
   pause
 )

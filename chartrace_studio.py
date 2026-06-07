@@ -71,15 +71,17 @@ class App(tk.Tk):
             widget.grid(row=r,column=1,sticky="we",pady=5,padx=(10,0))
         g.columnconfigure(1,weight=1)
         self.invest=tk.StringVar(value="10000")
+        self.startmax=tk.StringVar(value="50000")
         self.syear=tk.IntVar(value=2020)
         self.smonth=tk.IntVar(value=1)
         self.dur=tk.StringVar(value="15")
         self.hold=tk.StringVar(value="2")
         row(0,"Investbetrag (€)",tk.Entry(g,textvariable=self.invest,bg="#101020",fg=FG,insertbackground=FG,relief="flat"))
-        row(1,"Startjahr",tk.Spinbox(g,from_=2012,to=thisyear,textvariable=self.syear,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
-        row(2,"Startmonat",tk.Spinbox(g,from_=1,to=12,textvariable=self.smonth,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
-        row(3,"Länge (Sek.)",tk.Spinbox(g,from_=5,to=60,textvariable=self.dur,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
-        row(4,"Endstand stehen lassen (Sek.)",tk.Spinbox(g,from_=0,to=6,textvariable=self.hold,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
+        row(1,"StartMax / graue Lane (€)",tk.Entry(g,textvariable=self.startmax,bg="#101020",fg=FG,insertbackground=FG,relief="flat"))
+        row(2,"Startjahr",tk.Spinbox(g,from_=2012,to=thisyear,textvariable=self.syear,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
+        row(3,"Startmonat",tk.Spinbox(g,from_=1,to=12,textvariable=self.smonth,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
+        row(4,"Länge (Sek.)",tk.Spinbox(g,from_=5,to=60,textvariable=self.dur,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
+        row(5,"Endstand stehen lassen (Sek.)",tk.Spinbox(g,from_=0,to=6,textvariable=self.hold,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
 
         # --- options ---
         co=tk.Frame(body,bg=BG); co.pack(fill="x",pady=2)
@@ -87,13 +89,14 @@ class App(tk.Tk):
         self.blink=tk.BooleanVar(value=True)
         self.music=tk.BooleanVar(value=True)
         self.live=tk.BooleanVar(value=True)
+        self.sort=tk.BooleanVar(value=True)
         lf=tk.Frame(co,bg=BG); lf.pack(fill="x",pady=4)
         self._lbl(lf,"Look:").pack(side="left")
         for txt,val in [("Dark Neon","dark"),("Clean Light","light")]:
             tk.Radiobutton(lf,text=txt,variable=self.look,value=val,bg=BG,fg=FG,selectcolor="#26263a",
                 activebackground=BG,activeforeground=FG,font=("Segoe UI",10)).pack(side="left",padx=8)
         of=tk.Frame(co,bg=BG); of.pack(fill="x")
-        for txt,var in [("Sieger blinken",self.blink),("Musik",self.music),("Live-Daten bevorzugen",self.live)]:
+        for txt,var in [("Sieger blinken",self.blink),("Musik",self.music),("Live-Daten",self.live),("Nach Wert sortieren",self.sort)]:
             tk.Checkbutton(of,text=txt,variable=var,bg=BG,fg=FG,selectcolor="#26263a",
                 activebackground=BG,activeforeground=FG,font=("Segoe UI",10)).pack(side="left",padx=(0,14))
 
@@ -133,6 +136,7 @@ class App(tk.Tk):
             messagebox.showwarning("Hinweis","Bitte höchstens 6 Assets (Lesbarkeit)."); return
         try:
             invest=float(self.invest.get().replace(".","").replace(",","."))
+            startmax=float(self.startmax.get().replace(".","").replace(",","."))
             dur=float(self.dur.get().replace(",",".")); hold=float(self.hold.get().replace(",","."))
         except ValueError:
             messagebox.showerror("Fehler","Bitte gültige Zahlen eingeben."); return
@@ -143,7 +147,7 @@ class App(tk.Tk):
         cfg=dict(assets=assets,invest=invest,start_year=self.syear.get(),
                  start_month=self.smonth.get(),duration=dur,hold=hold,
                  blink=self.blink.get(),look=self.look.get(),music=self.music.get(),
-                 out_path=out,currency="€",prefer_live=self.live.get())
+                 out_path=out,currency="€",prefer_live=self.live.get(),sort=self.sort.get(),start_max=startmax)
         self.btn.config(state="disabled",text="Rendere …")
         self.pb["value"]=0
         threading.Thread(target=self._worker,args=(cfg,),daemon=True).start()
