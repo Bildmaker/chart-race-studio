@@ -76,12 +76,14 @@ class App(tk.Tk):
         self.smonth=tk.IntVar(value=1)
         self.dur=tk.StringVar(value="15")
         self.hold=tk.StringVar(value="2")
+        self.zoom=tk.StringVar(value="105")
         row(0,"Investbetrag (€)",tk.Entry(g,textvariable=self.invest,bg="#101020",fg=FG,insertbackground=FG,relief="flat"))
         row(1,"StartMax / graue Lane (€)",tk.Entry(g,textvariable=self.startmax,bg="#101020",fg=FG,insertbackground=FG,relief="flat"))
         row(2,"Startjahr",tk.Spinbox(g,from_=2012,to=thisyear,textvariable=self.syear,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
         row(3,"Startmonat",tk.Spinbox(g,from_=1,to=12,textvariable=self.smonth,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
         row(4,"Länge (Sek.)",tk.Spinbox(g,from_=5,to=60,textvariable=self.dur,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
         row(5,"Endstand stehen lassen (Sek.)",tk.Spinbox(g,from_=0,to=6,textvariable=self.hold,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
+        row(6,"Zoom-Ende (%)",tk.Spinbox(g,from_=100,to=130,textvariable=self.zoom,bg="#101020",fg=FG,relief="flat",buttonbackground=CARD))
 
         # --- options ---
         co=tk.Frame(body,bg=BG); co.pack(fill="x",pady=2)
@@ -164,6 +166,7 @@ class App(tk.Tk):
             invest=float(self.invest.get().replace(".","").replace(",","."))
             startmax=float(self.startmax.get().replace(".","").replace(",","."))
             dur=float(self.dur.get().replace(",",".")); hold=float(self.hold.get().replace(",","."))
+            zoom=max(1.0,float(self.zoom.get().replace(",","."))/100.0)
         except ValueError:
             messagebox.showerror("Fehler","Bitte gültige Zahlen eingeben."); return
         os.makedirs(self.outdir.get(),exist_ok=True)
@@ -173,7 +176,7 @@ class App(tk.Tk):
         cfg=dict(assets=assets,invest=invest,start_year=self.syear.get(),
                  start_month=self.smonth.get(),duration=dur,hold=hold,
                  blink=self.blink.get(),look=self.look.get(),music=self.music.get(),
-                 out_path=out,currency="€",prefer_live=self.live.get(),sort=self.sort.get(),start_max=startmax,background=self.bg.get())
+                 out_path=out,currency="€",prefer_live=self.live.get(),sort=self.sort.get(),start_max=startmax,background=self.bg.get(),zoom=zoom)
         self.logbox.delete("1.0","end")
         logpath=os.path.join(self.outdir.get(),"render_log.txt")
         self._log("Starte Render: "+", ".join(assets))

@@ -13,6 +13,7 @@ import matplotlib.patheffects as pe
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import matplotlib.image as mpimg
+from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -210,32 +211,23 @@ def _layout(n):
     return 100, 40
 
 # ---------------------------------------------------------------- frame
-def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_month,
-           scale_max, winner=None, blink=None, bgimg=None):
+def _paint(ax, assets, vals, ydisp, t, th, invest, cur, start_year, start_month,
+           scale_max, use_bg, winner=None, blink=None):
     n=len(assets); barh,_=_layout(n)
     X0=70; TW=W-2*X0; rad=min(46, barh*0.30)
     islight=th["islight"]
-
-    fig=Figure(figsize=(W/DPI,H/DPI),dpi=DPI); FigureCanvasAgg(fig)
-    ax=fig.add_axes([0,0,1,1]); ax.set_xlim(0,W); ax.set_ylim(0,H); ax.axis("off")
-    use_bg = bgimg is not None
-    if use_bg:
-        ax.imshow(bgimg, extent=[0,W,0,H], aspect="auto", zorder=0)
-    else:
-        _bg(ax,th)
     bar_a  = 0.80 if use_bg else 1.0
     lane_a = 0.42 if use_bg else 1.0
     txt_a  = 0.90 if use_bg else 1.0
     txt_eff=[pe.withStroke(linewidth=3,foreground=("#ffffff" if islight else "#000000"),alpha=0.45)] if use_bg else None
 
-    # ---- title + date (top) ----
     _title(ax, H-110, invest, cur, th, txt_a, txt_eff)
     yr,mo=ymd(t)
     ax.text(W/2,H-250,MONTHS_FULL[mo].upper(),ha="center",va="center",
             color=th["text"],fontsize=46,fontweight="bold",alpha=txt_a,path_effects=txt_eff)
-    ax.text(W/2,H-385,f"{yr}",ha="center",va="center",color=th["text"],fontsize=150,fontweight="bold",alpha=txt_a,path_effects=txt_eff)
+    ax.text(W/2,H-385,f"{yr}",ha="center",va="center",color=th["text"],fontsize=150,
+            fontweight="bold",alpha=txt_a,path_effects=txt_eff)
 
-    # ---- bars ----
     regionTop=H-575; regionBottom=210; pitch=(regionTop-regionBottom)/n
     for a in assets:
         nm=a["name"]; c=a["color"]; v=vals[nm]
@@ -243,15 +235,12 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
         frac=_bar_fraction(v,scale_max); bw=max(frac*TW, 4.0); rb=min(rad, bw*0.5)
         is_win=(winner is not None and nm==winner and blink is not None)
         gp=(blink if is_win else 0.0)
-        # graue Lane (volle Breite)
         ax.add_patch(FancyBboxPatch((X0,y),TW,barh,boxstyle=f"round,pad=0,rounding_size={rad}",
             lw=0,facecolor=th["track"],alpha=lane_a,zorder=1))
-        # Glow
         for dx,al in [(22,0.05),(13,0.08),(6,0.12)]:
             ax.add_patch(FancyBboxPatch((X0-dx,y-dx),bw+2*dx,barh+2*dx,
                 boxstyle=f"round,pad=0,rounding_size={rb+4}",lw=0,
                 facecolor=_mix(c,'#ffffff',0.3),alpha=min(1.0,al+gp*0.85),zorder=2))
-        # farbiger Balken (Gradient)
         clip=FancyBboxPatch((X0,y),bw,barh,boxstyle=f"round,pad=0,rounding_size={rb}",
             lw=0,facecolor='none',zorder=3); ax.add_patch(clip)
         grad=np.linspace(0,1,256).reshape(1,-1)
@@ -263,11 +252,9 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
         if is_win:
             ax.add_patch(FancyBboxPatch((X0,y),bw,barh,boxstyle=f"round,pad=0,rounding_size={rb}",
                 lw=6,edgecolor=c,facecolor='none',alpha=blink,zorder=6))
-        # Name ueber dem Balken
         fs_name=40 if n<=3 else (32 if n<=4 else 26)
         ax.text(X0+8,y+barh+34,nm,ha="left",va="center",color=th["text"],
                 fontsize=fs_name,fontweight="bold",zorder=7,alpha=txt_a,path_effects=txt_eff)
-        # Wert + Vielfaches (rechts in der Lane)
         fs_v=58 if n<=3 else (46 if n<=4 else 38)
         vtxt=fmt_eur(v,cur); mtxt=fmt_mult(v/invest); vx=X0+TW-34
         vcol = "#111118" if islight else "#ffffff"
@@ -278,13 +265,60 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
         ax.text(vx,cy-barh*0.26,mtxt,ha="right",va="center",color=MULT,fontsize=fs_v*0.52,
                 fontweight="bold",zorder=7,alpha=txt_a,path_effects=veff)
 
-    # ---- footer ----
     ax.text(W/2,82,f"seit {MONTHS_FULL[start_month-1]} {start_year}",ha="center",va="center",
             color=th["sub"],fontsize=30,fontweight="bold",alpha=txt_a,path_effects=txt_eff)
 
+def _new_ax(transparent):
+    fig=Figure(figsize=(W/DPI,H/DPI),dpi=DPI); FigureCanvasAgg(fig)
+    if transparent: fig.patch.set_alpha(0.0)
+    ax=fig.add_axes([0,0,1,1]); ax.set_xlim(0,W); ax.set_ylim(0,H); ax.axis("off")
+    if transparent: ax.patch.set_alpha(0.0)
+    return fig,ax
+
+def _bg_array(th, bgimg):
+    fig,ax=_new_ax(False)
+    if bgimg is not None:
+        ax.imshow(bgimg, extent=[0,W,0,H], aspect="auto", zorder=0)
+    else:
+        _bg(ax,th)
+    fig.canvas.draw()
+    return np.asarray(fig.canvas.buffer_rgba())[:,:,:3].copy()
+
+def _zoom_array(img, z):
+    if z<=1.0001: return img
+    h,w=img.shape[:2]
+    cw=max(1,int(round(w/z))); ch=max(1,int(round(h/z)))
+    x0=(w-cw)//2; y0=(h-ch)//2
+    crop=img[y0:y0+ch, x0:x0+cw]
+    return np.asarray(Image.fromarray(crop).resize((w,h), Image.BILINEAR))
+
+def _frame_rgba(assets, vals, ydisp, t, th, invest, cur, sy, sm, scale_max, use_bg,
+                winner=None, blink=None):
+    fig,ax=_new_ax(True)
+    _paint(ax,assets,vals,ydisp,t,th,invest,cur,sy,sm,scale_max,use_bg,winner,blink)
+    fig.canvas.draw()
+    return np.asarray(fig.canvas.buffer_rgba())
+
+def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_month,
+           scale_max, winner=None, blink=None, bgimg=None):
+    """Einzelbild als PNG (fuer Standbilder/Tests)."""
+    use_bg = bgimg is not None
+    fig,ax=_new_ax(False)
+    if use_bg:
+        ax.imshow(bgimg, extent=[0,W,0,H], aspect="auto", zorder=0)
+    else:
+        _bg(ax,th)
+    _paint(ax,assets,vals,ydisp,t,th,invest,cur,start_year,start_month,scale_max,use_bg,winner,blink)
     fig.savefig(path,facecolor=th["fig"])
 
-# ---------------------------------------------------------------- main
+def _ffmpeg_exe():
+    try:
+        import imageio_ffmpeg; return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        exe=shutil.which("ffmpeg")
+        if exe: return exe
+        raise RuntimeError("ffmpeg nicht gefunden. Bitte 'pip install imageio-ffmpeg' ausfuehren.")
+
 def render_video(cfg, progress=None, log=print):
     def report(p,msg):
         if progress: progress(p,msg)
@@ -296,7 +330,6 @@ def render_video(cfg, progress=None, log=print):
     music=bool(cfg.get("music",True)); cur=cfg.get("currency","€")
     prefer_live=bool(cfg.get("prefer_live",True)); sort_v=bool(cfg.get("sort",True))
     th=THEMES.get(look,THEMES["dark"])
-    # Hintergrundbild (Default: images/background.png; leerer Pfad = keins)
     if "background" in cfg:
         bg_path = cfg["background"] or None
     else:
@@ -305,6 +338,7 @@ def render_video(cfg, progress=None, log=print):
     if bg_path and os.path.isfile(bg_path):
         try: bgimg=mpimg.imread(bg_path)
         except Exception as e: log("Hintergrundbild konnte nicht geladen werden: %r"%e)
+    use_bg = bgimg is not None
     today=datetime.date.today()
     start_mi=midx(sy,sm); end_mi=midx(today.year,today.month)
     if end_mi<=start_mi: end_mi=start_mi+12
@@ -326,7 +360,6 @@ def render_video(cfg, progress=None, log=print):
     report(8,f"Sieger: {winner} ({fmt_eur(endvals[winner],cur)}) · StartMax: {fmt_eur(start_max,cur)}")
 
     total=int(round(dur*FPS)); holdf=int(round(hold*FPS)); racef=max(2,total-holdf)
-    tmp=tempfile.mkdtemp(prefix="crs_")
     NAMES=[a["name"] for a in assets]; yd={}
     fixed={n:i for i,n in enumerate(NAMES)}
     def step(t):
@@ -341,37 +374,58 @@ def render_video(cfg, progress=None, log=print):
         else:
             for n in NAMES: yd[n]+=(tg[n]-yd[n])*0.22
         return vals
+
+    report(9,"Bereite Hintergrund vor …")
+    base_u8=_bg_array(th,bgimg)
+    base_f=base_u8.astype(np.float32)
+    zoom_end=max(1.0,float(cfg.get("zoom",1.05)))
+    zoom_on=use_bg and zoom_end>1.0001
+
+    tmp=tempfile.mkdtemp(prefix="crs_"); audio=None
+    if music:
+        report(10,"Erzeuge Musik …"); audio=os.path.join(tmp,"music.wav"); make_music(audio,dur)
+
+    ff=_ffmpeg_exe(); out=cfg["out_path"]
+    cmd=[ff,"-y","-f","rawvideo","-pixel_format","rgb24","-video_size",f"{W}x{H}",
+         "-framerate",str(FPS),"-i","-"]
+    if audio: cmd+=["-i",audio]
+    cmd+=["-c:v","libx264","-pix_fmt","yuv420p","-crf","20","-preset","veryfast"]
+    if audio: cmd+=["-c:a","aac","-b:a","192k","-shortest"]
+    cmd+=["-movflags","+faststart",out]
+    report(11,"Starte ffmpeg, streame Frames …")
+    errf=tempfile.TemporaryFile()
+    proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=errf)
     try:
         for i in range(total):
             if i<racef:
                 t=start_mi+(i/(racef-1))*(end_mi-start_mi); bl=None
             else:
                 t=end_mi; bl=0.5+0.5*math.sin(((i-racef)/FPS)*2*math.pi*2.5)
-            vals=step(t)
-            smax=max(start_max, max(vals.values()))
-            _frame(os.path.join(tmp,f"f{i:05d}.png"),assets,vals,yd,t,th,invest,cur,
-                   sy,sm,smax,winner=winner,blink=(bl if blink else None),bgimg=bgimg)
-            if i%10==0: report(10+int(78*i/total),f"Rendere Frame {i+1}/{total} …")
-        audio=None
-        if music:
-            report(90,"Erzeuge Musik …"); audio=os.path.join(tmp,"music.wav"); make_music(audio,dur)
-        report(92,"Setze Video zusammen (ffmpeg) …")
-        ff=_ffmpeg_exe(); out=cfg["out_path"]
-        cmd=[ff,"-y","-framerate",str(FPS),"-i",os.path.join(tmp,"f%05d.png")]
-        if audio: cmd+=["-i",audio]
-        cmd+=["-c:v","libx264","-pix_fmt","yuv420p","-crf","19","-preset","medium"]
-        if audio: cmd+=["-c:a","aac","-b:a","192k","-shortest"]
-        cmd+=["-movflags","+faststart",out]
-        subprocess.run(cmd,check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            vals=step(t); smax=max(start_max, max(vals.values()))
+            fg=_frame_rgba(assets,vals,yd,t,th,invest,cur,sy,sm,smax,use_bg,
+                           winner=winner,blink=(bl if blink else None)).astype(np.float32)
+            if zoom_on:
+                z=1.0+(zoom_end-1.0)*(i/max(1,total-1))
+                cur_base=_zoom_array(base_u8,z).astype(np.float32)
+            else:
+                cur_base=base_f
+            a=fg[:,:,3:4]/255.0
+            rgb=(fg[:,:,:3]*a + cur_base*(1.0-a)).astype(np.uint8)
+            proc.stdin.write(rgb.tobytes())
+            if i%10==0: report(11+int(85*i/total),f"Rendere Frame {i+1}/{total} …")
+        proc.stdin.close()
+        ret=proc.wait()
+        if ret!=0:
+            errf.seek(0); msg=errf.read().decode("utf-8","ignore")[-800:]
+            raise RuntimeError("ffmpeg-Fehler:\n"+msg)
         report(100,f"Fertig: {out}")
         return out
     finally:
+        try:
+            if proc.poll() is None:
+                try: proc.stdin.close()
+                except Exception: pass
+                proc.wait(timeout=5)
+        except Exception: pass
+        errf.close()
         shutil.rmtree(tmp,ignore_errors=True)
-
-def _ffmpeg_exe():
-    try:
-        import imageio_ffmpeg; return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        exe=shutil.which("ffmpeg")
-        if exe: return exe
-        raise RuntimeError("ffmpeg nicht gefunden. Bitte 'pip install imageio-ffmpeg' ausfuehren.")
