@@ -229,7 +229,7 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
     for a in assets:
         nm=a["name"]; c=a["color"]; v=vals[nm]
         cy=regionTop-(ydisp[nm]+0.5)*pitch; y=cy-barh/2
-        frac=_bar_fraction(v,scale_max); bw=max(frac*TW, barh)
+        frac=_bar_fraction(v,scale_max); bw=max(frac*TW, 4.0); rb=min(rad, bw*0.5)
         is_win=(winner is not None and nm==winner and blink is not None)
         gp=(blink if is_win else 0.0)
         # graue Lane (volle Breite)
@@ -238,19 +238,19 @@ def _frame(path, assets, vals, ydisp, t, th, invest, cur, start_year, start_mont
         # Glow
         for dx,al in [(22,0.05),(13,0.08),(6,0.12)]:
             ax.add_patch(FancyBboxPatch((X0-dx,y-dx),bw+2*dx,barh+2*dx,
-                boxstyle=f"round,pad=0,rounding_size={rad+4}",lw=0,
+                boxstyle=f"round,pad=0,rounding_size={rb+4}",lw=0,
                 facecolor=_mix(c,'#ffffff',0.3),alpha=min(1.0,al+gp*0.85),zorder=2))
         # farbiger Balken (Gradient)
-        clip=FancyBboxPatch((X0,y),bw,barh,boxstyle=f"round,pad=0,rounding_size={rad}",
+        clip=FancyBboxPatch((X0,y),bw,barh,boxstyle=f"round,pad=0,rounding_size={rb}",
             lw=0,facecolor='none',zorder=3); ax.add_patch(clip)
         grad=np.linspace(0,1,256).reshape(1,-1)
         im=ax.imshow(grad,extent=[X0,X0+bw,y,y+barh],aspect="auto",origin="lower",zorder=3,
             cmap=LinearSegmentedColormap.from_list("b",[_mix(c,'#ffffff',0.45),c]))
         im.set_clip_path(clip)
-        sh=FancyBboxPatch((X0,y+barh*0.52),bw,barh*0.48,boxstyle=f"round,pad=0,rounding_size={rad}",
+        sh=FancyBboxPatch((X0,y+barh*0.52),bw,barh*0.48,boxstyle=f"round,pad=0,rounding_size={rb}",
             lw=0,facecolor='#ffffff',alpha=0.12,zorder=4); ax.add_patch(sh); sh.set_clip_path(clip)
         if is_win:
-            ax.add_patch(FancyBboxPatch((X0,y),bw,barh,boxstyle=f"round,pad=0,rounding_size={rad}",
+            ax.add_patch(FancyBboxPatch((X0,y),bw,barh,boxstyle=f"round,pad=0,rounding_size={rb}",
                 lw=6,edgecolor=c,facecolor='none',alpha=blink,zorder=6))
         # Name ueber dem Balken
         fs_name=40 if n<=3 else (32 if n<=4 else 26)
